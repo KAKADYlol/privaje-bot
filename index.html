@@ -495,11 +495,11 @@
     </div>
 
     <div id="screen-main" class="screen">
-        <h1>💜 Privaje</h1>
+        <h1> Privaje</h1>
         <p class="subtitle" id="user-greeting">Привет!</p>
         
         <div id="pinned-challenge" class="pinned-challenge" style="display: none;">
-            <div class="pinned-label"> Твой челлендж</div>
+            <div class="pinned-label">📌 Твой челлендж</div>
             <div class="pinned-text" id="pinned-text"></div>
         </div>
 
@@ -508,7 +508,7 @@
         </div>
 
         <div id="action-buttons">
-            <button class="btn btn-primary" id="btn-general" onclick="openChallenge(false)">📝 Предложить челлендж</button>
+            <button class="btn btn-primary" id="btn-general" onclick="openChallenge(false)"> Предложить челлендж</button>
             <button class="btn btn-secondary" id="btn-friend" onclick="openChallenge(true)">🎯 Челлендж другу</button>
         </div>
 
@@ -542,11 +542,11 @@
             <div class="roulette-pointer"></div>
             <div class="roulette-wheel" id="roulette-wheel">
                 <div class="capsule-slot">💊</div>
+                <div class="capsule-slot"></div>
                 <div class="capsule-slot">💊</div>
                 <div class="capsule-slot">💊</div>
                 <div class="capsule-slot">💊</div>
-                <div class="capsule-slot">💊</div>
-                <div class="roulette-center">🎲</div>
+                <div class="roulette-center"></div>
             </div>
         </div>
 
@@ -572,7 +572,7 @@
         let currentUser = null;
         let limits = { general: false, friend: false };
         let hasSpunToday = false;
-        let roulettePostponed = false; // НОВЫЙ ФЛАГ: блокирует повторное открытие колеса
+        let roulettePostponed = false;
         let currentChallenge = null;
 
         const API_BASE = 'https://privaje-bot.onrender.com/api';
@@ -698,7 +698,6 @@
             const isRouletteTime = diff <= 0;
             const hasCreatedChallenges = limits.general || limits.friend;
 
-            // ИСПРАВЛЕНИЕ: добавлена проверка roulettePostponed
             if (isRouletteTime && hasCreatedChallenges && !hasSpunToday && !roulettePostponed) {
                 showRoulette();
                 return;
@@ -712,9 +711,8 @@
                 document.getElementById('timer').innerText = '--:--:--';
                 return;
             } else if (roulettePostponed) {
-                // Показываем кнопку для возврата к колесу
                 document.getElementById('timer-label').innerText = 'Розыгрыш доступен';
-                document.getElementById('timer').innerText = '🎰';
+                document.getElementById('timer').innerText = '';
             } else {
                 document.getElementById('timer-label').innerText = 'До розыгрыша (18:00 МСК)';
             }
@@ -732,16 +730,13 @@
             switchScreen('screen-main', 'screen-roulette');
         }
 
-        // НОВАЯ ФУНКЦИЯ: отложить колесо
         function postponeRoulette() {
             roulettePostponed = true;
             switchScreen('screen-roulette', 'screen-main');
             
-            // Показываем таймер с кнопкой возврата к колесу
             document.getElementById('timer-label').innerText = 'Розыгрыш доступен';
             document.getElementById('timer').innerText = '🎰';
             
-            // Добавляем обработчик клика по таймеру для возврата к колесу
             const timerSection = document.getElementById('timer-section');
             timerSection.style.cursor = 'pointer';
             timerSection.onclick = () => {
@@ -783,30 +778,35 @@
 
         async function showPaperFromCapsule() {
             try {
+                console.log(' Запрос доступных челленджей...');
                 const response = await fetch(`${API_BASE}/available-challenges`);
                 const challenges = await response.json();
                 
+                console.log('📦 Получено челленджей:', challenges.length, challenges);
+                
                 if (challenges.length === 0) {
-                    alert('😔 Пока нет одобренных челленджей. Попробуй завтра!');
+                    alert('😔 Пока нет одобренных челленджей.\n\n1. Создай челлендж\n2. Дождись одобрения админом\n3. Попробуй снова');
                     closePaper();
                     return;
                 }
                 
                 const randomChallenge = challenges[Math.floor(Math.random() * challenges.length)];
+                console.log('🎯 Выбран челлендж:', randomChallenge);
                 
                 const assignResponse = await fetch(`${API_BASE}/assign-challenge`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
-                        user_id: currentUser.telegram_id,
-                        challenge_id: randomChallenge.id
+                        user_id: Number(currentUser.telegram_id),
+                        challenge_id: Number(randomChallenge.id)
                     })
                 });
                 
                 const result = await assignResponse.json();
+                console.log(' Ответ сервера на назначение:', assignResponse.status, result);
                 
                 if (!assignResponse.ok) {
-                    alert('Этот челлендж уже выдали другому! Крути ещё раз 🎲');
+                    alert('⚠️ ' + (result.error || 'Этот челлендж уже выдали другому! Крути ещё раз 🎲'));
                     switchScreen('screen-roulette', 'screen-main');
                     setTimeout(() => showRoulette(), 1000);
                     return;
@@ -820,8 +820,8 @@
                 if (tg && tg.HapticFeedback) tg.HapticFeedback.notificationOccurred('success');
                 
             } catch (error) {
-                console.error('Ошибка получения челленджа:', error);
-                alert('Ошибка при получении челленджа. Попробуй позже!');
+                console.error('❌ Критическая ошибка получения челленджа:', error);
+                alert('❌ Критическая ошибка: ' + error.message + '\n\nСделай скриншот и отправь разработчику.');
                 closePaper();
             }
         }
