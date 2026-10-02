@@ -16,7 +16,11 @@ const bot = new Telegraf(BOT_TOKEN);
 const db = new sqlite3.Database('./privaje.db');
 
 // === НАСТРОЙКА EXPRESS ===
-app.use(cors());
+app.use(cors({
+    origin: '*',
+    methods: ['GET', 'POST'],
+    allowedHeaders: ['Content-Type', 'Authorization']
+}));
 app.use(bodyParser.json());
 app.use(express.static(path.join(__dirname)));
 
