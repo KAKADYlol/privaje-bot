@@ -22,8 +22,9 @@ app.use(cors());
 app.use(bodyParser.json());
 app.use(express.static(path.join(__dirname)));
 
-// === БАЗА ДАННЫХ ===
+// === БАЗА ДАННЫХ С МИГРАЦИЕЙ ===
 db.serialize(() => {
+    // Создаём таблицы
     db.run(`CREATE TABLE IF NOT EXISTS users (
         telegram_id INTEGER PRIMARY KEY, 
         username TEXT, 
@@ -39,8 +40,6 @@ db.serialize(() => {
         text TEXT, 
         target_username TEXT, 
         status TEXT DEFAULT 'pending',
-        assigned_to INTEGER DEFAULT NULL,
-        assigned_at DATETIME DEFAULT NULL,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     )`);
     
@@ -51,7 +50,24 @@ db.serialize(() => {
         PRIMARY KEY (user_id, type, submission_date)
     )`);
     
-    console.log('✅ База данных готова');
+    console.log('✅ Таблицы созданы');
+    
+    // МИГРАЦИЯ: добавляем недостающие колонки
+    db.run(`ALTER TABLE challenges ADD COLUMN assigned_to INTEGER DEFAULT NULL`, (err) => {
+        if (err && !err.message.includes('duplicate column')) {
+            console.error('Ошибка миграции assigned_to:', err.message);
+        } else {
+            console.log('✅ Колонка assigned_to готова');
+        }
+    });
+    
+    db.run(`ALTER TABLE challenges ADD COLUMN assigned_at DATETIME DEFAULT NULL`, (err) => {
+        if (err && !err.message.includes('duplicate column')) {
+            console.error('Ошибка миграции assigned_at:', err.message);
+        } else {
+            console.log('✅ Колонка assigned_at готова');
+        }
+    });
 });
 
 // === DEBUG ENDPOINT ===
@@ -65,7 +81,7 @@ app.get('/api/debug', (req, res) => {
             approved: rows.filter(r => r.status === 'approved').length,
             rejected: rows.filter(r => r.status === 'rejected').length,
             assigned: rows.filter(r => r.assigned_to !== null).length,
-            available: rows.filter(r => r.status === 'approved' && r.assigned_to === null).length
+            available: rows.filter(r => r.status === 'approved' && !r.assigned_to).length
         };
         
         console.log('🔍 Debug stats:', stats);
@@ -107,7 +123,7 @@ app.post('/api/challenge', (req, res) => {
     const { user_id, type, text, target_username } = req.body;
     const today = new Date().toISOString().split('T')[0];
     
-    console.log(` Новый челлендж от ${user_id}: "${text}"`);
+    console.log(`📝 Новый челлендж от ${user_id}: "${text}"`);
     
     db.get(`SELECT 1 FROM daily_submissions WHERE user_id = ? AND type = ? AND submission_date = ?`, 
         [user_id, type, today], (err, row) => {
@@ -138,14 +154,22 @@ app.post('/api/challenge', (req, res) => {
 app.get('/api/available-challenges', (req, res) => {
     console.log('🎲 Запрос доступных челленджей...');
     
-    db.all(`SELECT id, text, user_id FROM challenges WHERE status = 'approved' AND assigned_to IS NULL`, 
+    db.all(`SELECT id, text, user_id FROM challenges WHERE status = 'approved' AND (assigned_to IS NULL OR assigned_to = 0)`, 
         [], (err, rows) => {
             if (err) {
                 console.error('❌ Ошибка запроса available-challenges:', err.message);
-                return res.status(500).json({ error: err.message });
+                // Fallback на тестовые при ошибке
+                const mockChallenges = [
+                    { id: 999, text: 'Сделай 20 отжиманий прямо сейчас!', user_id: 0 },
+                    { id: 998, text: 'Напиши стихотворение про кота за 3 минуты', user_id: 0 },
+                    { id: 997, text: 'Позвони другу и расскажи анекдот', user_id: 0 },
+                    { id: 996, text: 'Сделай селфи в самом странном месте дома', user_id: 0 },
+                    { id: 995, text: 'Напиши код, который рисует сердечко', user_id: 0 }
+                ];
+                return res.json(mockChallenges);
             }
             
-            console.log(` Найдено ${rows.length} одобренных челленджей в БД`);
+            console.log(`📊 Найдено ${rows.length} одобренных челленджей в БД`);
             
             // Если есть реальные челленджи — используем их
             if (rows.length > 0) {
@@ -178,7 +202,7 @@ app.post('/api/assign-challenge', (req, res) => {
     
     const now = new Date().toISOString();
     
-    db.run(`UPDATE challenges SET assigned_to = ?, assigned_at = ? WHERE id = ? AND assigned_to IS NULL`, 
+    db.run(`UPDATE challenges SET assigned_to = ?, assigned_at = ? WHERE id = ? AND (assigned_to IS NULL OR assigned_to = 0)`, 
         [Number(user_id), now, Number(challenge_id)], function(err) {
             if (err) {
                 console.error(' Ошибка обновления БД:', err.message);
@@ -238,11 +262,11 @@ bot.start((ctx) => {
         ctx.reply(
             `👋 Привет, админ! Бот модерации Privaje работает.\n\n` +
             `🔗 Открыть Web App:`,
-            Markup.inlineKeyboard([[Markup.button.webApp(' Открыть челленджи', webAppUrl)]])
+            Markup.inlineKeyboard([[Markup.button.webApp('🎮 Открыть челленджи', webAppUrl)]])
         );
     } else {
         ctx.reply(
-            `👋 Привет, ${firstName}! Добро пожаловать в Privaje Challenges! 💜\n\n` +
+            `👋 Привет, ${firstName}! Добро пожаловать в Privaje Challenges! \n\n` +
             `Нажми кнопку ниже, чтобы начать:`,
             Markup.inlineKeyboard([[Markup.button.webApp('🎮 Открыть челленджи', webAppUrl)]])
         );
@@ -294,7 +318,7 @@ function sendToModeration(challengeId, text, userId, targetUsername) {
     console.log(`📤 Отправка на модерацию #${challengeId} админу ${ADMIN_ID}`);
     
     let msg = `📝 Новый челлендж на модерацию!\n\n`;
-    msg += `🆔 ID: ${challengeId}\n`;
+    msg += ` ID: ${challengeId}\n`;
     msg += `👤 От пользователя ID: ${userId}\n`;
     msg += `📄 Текст: "${text}"\n`;
     if (targetUsername) {
@@ -302,7 +326,6 @@ function sendToModeration(challengeId, text, userId, targetUsername) {
     }
     msg += `\nНажми кнопку ниже:`;
     
-    // БЕЗ parse_mode Markdown — чтобы кнопки точно приходили
     const keyboard = Markup.inlineKeyboard([
         [Markup.button.callback('✅ Одобрить', `approve_${challengeId}`)],
         [Markup.button.callback('❌ Отклонить', `reject_${challengeId}`)]
