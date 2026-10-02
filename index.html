@@ -494,7 +494,7 @@
     </div>
 
     <div id="screen-main" class="screen">
-        <h1> Privaje</h1>
+        <h1>💜 Privaje</h1>
         <p class="subtitle" id="user-greeting">Привет!</p>
         
         <div id="pinned-challenge" class="pinned-challenge" style="display: none;">
@@ -542,7 +542,7 @@
             <div class="roulette-wheel" id="roulette-wheel">
                 <div class="capsule-slot">💊</div>
                 <div class="capsule-slot">💊</div>
-                <div class="capsule-slot"></div>
+                <div class="capsule-slot">💊</div>
                 <div class="capsule-slot">💊</div>
                 <div class="capsule-slot">💊</div>
                 <div class="roulette-center">🎲</div>
@@ -573,13 +573,6 @@
         let currentChallenge = null;
 
         const API_BASE = 'https://privaje-bot.onrender.com/api';
-        const mockChallenges = [
-            "Сделай 50 отжиманий прямо сейчас и запиши видео",
-            "Напиши стихотворение про программирование за 5 минут",
-            "Позвони другу и спой ему песню",
-            "Сделай селфи в самом странном месте дома",
-            "Напиши код на Python, который рисует котика"
-        ];
 
         async function initTelegram() {
             try {
@@ -615,6 +608,20 @@
                 });
 
                 await loadLimits();
+                
+                // Проверяем, крутил ли пользователь колесо сегодня (с сервера)
+                const spinResponse = await fetch(`${API_BASE}/has-spun/${currentUser.telegram_id}`);
+                const spinData = await spinResponse.json();
+                hasSpunToday = spinData.hasSpun;
+                
+                // Проверяем, есть ли у пользователя текущий челлендж
+                const challengeResponse = await fetch(`${API_BASE}/user-challenge/${currentUser.telegram_id}`);
+                const userChallenge = await challengeResponse.json();
+                
+                if (userChallenge) {
+                    document.getElementById('pinned-challenge').style.display = 'block';
+                    document.getElementById('pinned-text').innerText = userChallenge.text;
+                }
 
                 document.getElementById('user-greeting').innerText = `Привет, ${currentUser.first_name}!`;
                 switchScreen('screen-loading', 'screen-main');
@@ -629,7 +636,6 @@
 
         async function loadLimits() {
             if (!currentUser) return;
-            
             try {
                 const response = await fetch(`${API_BASE}/limits/${currentUser.telegram_id}`);
                 limits = await response.json();
@@ -688,11 +694,7 @@
             target.setHours(18, 0, 0, 0);
 
             const diff = target - msk;
-
-            // Проверяем, наступило ли время 18:00
             const isRouletteTime = diff <= 0;
-
-            // Проверяем, создал ли пользователь хотя бы один челлендж сегодня
             const hasCreatedChallenges = limits.general || limits.friend;
 
             if (isRouletteTime && hasCreatedChallenges && !hasSpunToday) {
@@ -704,7 +706,6 @@
                 target.setDate(target.getDate() + 1);
                 document.getElementById('timer-label').innerText = 'До следующего розыгрыша (18:00 МСК)';
             } else if (isRouletteTime && !hasCreatedChallenges) {
-                // Время пришло, но пользователь не создал челленджи
                 document.getElementById('timer-label').innerText = 'Создайте челлендж для участия!';
                 document.getElementById('timer').innerText = '--:--:--';
                 return;
@@ -753,13 +754,49 @@
             }, 1000);
         }
 
-        function showPaperFromCapsule() {
-            currentChallenge = mockChallenges[Math.floor(Math.random() * mockChallenges.length)];
-            const paper = document.getElementById('paper-from-capsule');
-            document.getElementById('paper-content').innerText = currentChallenge;
-            paper.classList.add('show');
-            playSound('snd-unfold');
-            if (tg && tg.HapticFeedback) tg.HapticFeedback.notificationOccurred('success');
+        async function showPaperFromCapsule() {
+            try {
+                const response = await fetch(`${API_BASE}/available-challenges`);
+                const challenges = await response.json();
+                
+                if (challenges.length === 0) {
+                    alert('😔 Пока нет одобренных челленджей. Попробуй завтра!');
+                    closePaper();
+                    return;
+                }
+                
+                const randomChallenge = challenges[Math.floor(Math.random() * challenges.length)];
+                
+                const assignResponse = await fetch(`${API_BASE}/assign-challenge`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        user_id: currentUser.telegram_id,
+                        challenge_id: randomChallenge.id
+                    })
+                });
+                
+                const result = await assignResponse.json();
+                
+                if (!assignResponse.ok) {
+                    alert('Этот челлендж уже выдали другому! Крути ещё раз ');
+                    switchScreen('screen-roulette', 'screen-main');
+                    setTimeout(() => showRoulette(), 1000);
+                    return;
+                }
+                
+                currentChallenge = result.challenge;
+                const paper = document.getElementById('paper-from-capsule');
+                document.getElementById('paper-content').innerText = currentChallenge.text;
+                paper.classList.add('show');
+                playSound('snd-unfold');
+                if (tg && tg.HapticFeedback) tg.HapticFeedback.notificationOccurred('success');
+                
+            } catch (error) {
+                console.error('Ошибка получения челленджа:', error);
+                alert('Ошибка при получении челленджа. Попробуй позже!');
+                closePaper();
+            }
         }
 
         function closePaper() {
@@ -770,7 +807,7 @@
             switchScreen('screen-roulette', 'screen-main');
             
             document.getElementById('pinned-challenge').style.display = 'block';
-            document.getElementById('pinned-text').innerText = currentChallenge;
+            document.getElementById('pinned-text').innerText = currentChallenge.text;
             
             document.getElementById('action-buttons').style.display = 'block';
             document.getElementById('timer-section').style.display = 'block';
