@@ -1,0 +1,885 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Privaje Challenges</title>
+    <style>
+        * { box-sizing: border-box; }
+
+        :root {
+            --bg-color: #1a1025;
+            --card-bg: #2d1b4e;
+            --accent: #9d4edd;
+            --accent-light: #c77dff;
+            --text-main: #ffffff;
+            --text-secondary: #b8a9c9;
+            --danger: #ff4d6d;
+            --success: #4ecdc4;
+            --capsule-1: #ff6b6b;
+            --capsule-2: #4ecdc4;
+            --capsule-3: #ffe66d;
+            --capsule-4: #a8e6cf;
+            --capsule-5: #ff8b94;
+        }
+
+        body {
+            margin: 0; padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            overflow: hidden;
+        }
+
+        .screen {
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            width: 100%;
+            max-width: 400px;
+            padding: 20px;
+            text-align: center;
+            animation: fadeIn 0.5s ease;
+        }
+        .screen.active { display: flex; }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        h1 { color: var(--accent-light); margin-bottom: 10px; font-size: 24px; }
+        .subtitle { color: var(--text-secondary); margin-bottom: 20px; font-size: 14px; }
+
+        .btn {
+            width: 100%;
+            padding: 15px;
+            margin: 8px 0;
+            border: none;
+            border-radius: 12px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.1s, opacity 0.3s;
+        }
+        .btn:active:not(:disabled) { transform: scale(0.97); }
+        .btn:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+            filter: grayscale(0.5);
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, var(--accent), var(--accent-light));
+            color: white;
+            box-shadow: 0 4px 15px rgba(157, 78, 221, 0.4);
+        }
+        .btn-secondary {
+            background: var(--card-bg);
+            color: var(--text-main);
+            border: 1px solid var(--accent);
+        }
+        .btn-danger {
+            background: rgba(255, 77, 109, 0.2);
+            color: var(--danger);
+            border: 1px solid var(--danger);
+        }
+
+        .pinned-challenge {
+            width: 100%;
+            background: linear-gradient(135deg, #3d2a6e, #5a3d9e);
+            border: 2px solid var(--accent-light);
+            border-radius: 12px;
+            padding: 15px;
+            margin-bottom: 15px;
+            position: relative;
+            box-shadow: 0 4px 20px rgba(157, 78, 221, 0.3);
+        }
+        .pinned-label {
+            position: absolute;
+            top: -10px; left: 15px;
+            background: var(--accent);
+            color: white;
+            font-size: 10px;
+            padding: 3px 10px;
+            border-radius: 10px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        .pinned-text {
+            font-size: 14px;
+            line-height: 1.5;
+            margin-top: 5px;
+            color: #f0e6ff;
+        }
+
+        .limits-info {
+            width: 100%;
+            background: rgba(157, 78, 221, 0.15);
+            border: 1px solid rgba(157, 78, 221, 0.3);
+            border-radius: 10px;
+            padding: 10px 15px;
+            margin-bottom: 10px;
+            font-size: 12px;
+            color: var(--text-secondary);
+        }
+        .limits-info span { color: var(--accent-light); font-weight: bold; }
+
+        .timer-container {
+            margin-top: 15px;
+            padding: 15px;
+            background: var(--card-bg);
+            border-radius: 12px;
+            width: 100%;
+        }
+        .timer-label { font-size: 12px; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 1px; }
+        .timer-value { font-size: 28px; font-weight: bold; color: var(--accent-light); margin-top: 5px; font-variant-numeric: tabular-nums; }
+
+        /* ===== РАНДОМАЙЗЕР ===== */
+        .roulette-container {
+            width: 100%;
+            height: 300px;
+            position: relative;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            margin: 20px 0;
+        }
+        .roulette-wheel {
+            width: 250px; height: 250px;
+            border-radius: 50%;
+            background: radial-gradient(circle, #3d2a6e 0%, #1a1025 100%);
+            border: 3px solid var(--accent);
+            position: relative;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            box-shadow: 0 0 30px rgba(157, 78, 221, 0.5);
+        }
+        .roulette-wheel.spinning {
+            animation: spinWheel 3s cubic-bezier(0.17, 0.67, 0.12, 0.99);
+        }
+        @keyframes spinWheel {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(1440deg); }
+        }
+        .capsule-slot {
+            position: absolute;
+            width: 40px; height: 60px;
+            border-radius: 20px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 20px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+        }
+        .capsule-slot:nth-child(1) { background: var(--capsule-1); transform: rotate(0deg) translateY(-90px); }
+        .capsule-slot:nth-child(2) { background: var(--capsule-2); transform: rotate(72deg) translateY(-90px); }
+        .capsule-slot:nth-child(3) { background: var(--capsule-3); transform: rotate(144deg) translateY(-90px); }
+        .capsule-slot:nth-child(4) { background: var(--capsule-4); transform: rotate(216deg) translateY(-90px); }
+        .capsule-slot:nth-child(5) { background: var(--capsule-5); transform: rotate(288deg) translateY(-90px); }
+        .roulette-center {
+            width: 60px; height: 60px;
+            background: var(--accent);
+            border-radius: 50%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 24px;
+            z-index: 10;
+            box-shadow: 0 0 20px rgba(157, 78, 221, 0.8);
+        }
+        .roulette-pointer {
+            position: absolute;
+            top: -15px; left: 50%;
+            transform: translateX(-50%);
+            width: 0; height: 0;
+            border-left: 15px solid transparent;
+            border-right: 15px solid transparent;
+            border-top: 25px solid var(--accent-light);
+            z-index: 20;
+            filter: drop-shadow(0 2px 5px rgba(0,0,0,0.5));
+        }
+
+        #screen-roulette .roulette-title {
+            font-size: 20px;
+            color: var(--accent-light);
+            margin-bottom: 10px;
+        }
+        #screen-roulette .roulette-subtitle {
+            font-size: 14px;
+            color: var(--text-secondary);
+            margin-bottom: 20px;
+        }
+
+        /* ===== КАПСУЛА ===== */
+        .capsule-fall {
+            position: fixed;
+            top: 50%; left: 50%;
+            transform: translate(-50%, -50%);
+            width: 80px; height: 120px;
+            z-index: 100;
+            display: none;
+        }
+        .capsule-fall.show {
+            display: block;
+            animation: capsuleDrop 1s ease-out forwards;
+        }
+        @keyframes capsuleDrop {
+            0% { transform: translate(-50%, -200vh) rotate(0deg); opacity: 0; }
+            50% { transform: translate(-50%, -50%) rotate(360deg); opacity: 1; }
+            70% { transform: translate(-50%, -60%) rotate(380deg); }
+            85% { transform: translate(-50%, -45%) rotate(370deg); }
+            100% { transform: translate(-50%, -50%) rotate(375deg); opacity: 1; }
+        }
+        .capsule-body { width: 100%; height: 100%; position: relative; }
+        .capsule-top, .capsule-bottom {
+            width: 100%; height: 50%;
+            position: absolute; left: 0;
+            border-radius: 40px 40px 0 0;
+        }
+        .capsule-top {
+            top: 0;
+            background: linear-gradient(135deg, #ff6b6b, #ff8e8e);
+            border-bottom: 2px solid rgba(0,0,0,0.2);
+        }
+        .capsule-bottom {
+            bottom: 0;
+            background: linear-gradient(135deg, #ff8e8e, #ff6b6b);
+            border-radius: 0 0 40px 40px;
+        }
+        .capsule-fall.open .capsule-top {
+            animation: capsuleOpenTop 0.6s ease-out 0.5s forwards;
+        }
+        .capsule-fall.open .capsule-bottom {
+            animation: capsuleOpenBottom 0.6s ease-out 0.5s forwards;
+        }
+        @keyframes capsuleOpenTop {
+            0% { transform: translateY(0) rotate(0); }
+            100% { transform: translateY(-30px) rotate(-20deg); opacity: 0; }
+        }
+        @keyframes capsuleOpenBottom {
+            0% { transform: translateY(0) rotate(0); }
+            100% { transform: translateY(30px) rotate(20deg); opacity: 0; }
+        }
+
+        /* ===== БУМАЖКА ИЗ КАПСУЛЫ ===== */
+        .paper-from-capsule {
+            position: fixed;
+            top: 50%; left: 50%;
+            transform: translate(-50%, -50%);
+            width: 300px; height: 400px;
+            background: #f5f0e6;
+            border-radius: 4px;
+            padding: 20px;
+            z-index: 101;
+            display: none;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.5);
+        }
+        .paper-from-capsule.show {
+            display: block;
+            animation: paperFromCapsule 1s ease-out forwards;
+        }
+        @keyframes paperFromCapsule {
+            0% { transform: translate(-50%, -50%) scale(0.1) rotate(180deg); opacity: 0; }
+            50% { transform: translate(-50%, -50%) scale(1.1) rotate(-10deg); opacity: 1; }
+            70% { transform: translate(-50%, -50%) scale(0.95) rotate(5deg); }
+            100% { transform: translate(-50%, -50%) scale(1) rotate(0deg); opacity: 1; }
+        }
+        .paper-from-capsule::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background-image: repeating-linear-gradient(
+                transparent, transparent 29px,
+                #d4c9b8 29px, #d4c9b8 30px
+            );
+            pointer-events: none;
+            border-radius: 4px;
+        }
+        .paper-from-capsule::after {
+            content: '';
+            position: absolute;
+            top: 0; bottom: 0; left: 40px;
+            width: 1px;
+            background: rgba(255, 100, 100, 0.3);
+            pointer-events: none;
+        }
+        .paper-content {
+            position: relative;
+            z-index: 2;
+            font-family: 'Georgia', serif;
+            color: #2c2416;
+            font-size: 16px;
+            line-height: 30px;
+            text-align: left;
+            padding: 10px;
+        }
+        .paper-close-btn {
+            position: absolute;
+            bottom: 20px; right: 20px;
+            background: var(--accent);
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            z-index: 3;
+        }
+
+        /* ===== БУМАГА ДЛЯ СОЗДАНИЯ ===== */
+        .paper-wrapper {
+            width: 100%;
+            height: 340px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            perspective: 1000px;
+            position: relative;
+        }
+        .paper {
+            width: 100%; height: 300px;
+            background-color: #f5f0e6;
+            border-radius: 4px;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            position: relative;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.12), 0 10px 30px rgba(0,0,0,0.25);
+            transform-origin: top center;
+            opacity: 0;
+            transform: rotateX(-90deg);
+        }
+        .paper::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background-image: repeating-linear-gradient(
+                transparent, transparent 29px,
+                #d4c9b8 29px, #d4c9b8 30px
+            );
+            pointer-events: none;
+            border-radius: 4px;
+        }
+        .paper::after {
+            content: '';
+            position: absolute;
+            top: 0; bottom: 0; left: 40px;
+            width: 1px;
+            background: rgba(255, 100, 100, 0.3);
+            pointer-events: none;
+        }
+        .paper.unfold { animation: unfoldPaper 0.8s cubic-bezier(0.34, 1.56, 0.64, 1) forwards; }
+        @keyframes unfoldPaper {
+            0% { opacity: 0; transform: rotateX(-90deg) scaleY(0.1); }
+            50% { opacity: 0.7; transform: rotateX(-20deg) scaleY(0.6); }
+            75% { transform: rotateX(5deg) scaleY(1.02); }
+            100% { opacity: 1; transform: rotateX(0deg) scaleY(1); }
+        }
+        .paper.tear { animation: tearPaper 0.7s ease-in forwards; }
+        @keyframes tearPaper {
+            0% { transform: translateX(0) rotate(0); opacity: 1; }
+            20% { transform: translateX(-10px) rotate(-3deg); }
+            40% { transform: translateX(15px) rotate(4deg); }
+            60% { transform: translateX(-8px) rotate(-2deg) scale(0.9); opacity: 0.7; }
+            80% { transform: translateX(5px) rotate(1deg) scale(0.6); opacity: 0.4; }
+            100% { transform: translateX(0) rotate(0) scale(0.2) translateY(50px); opacity: 0; }
+        }
+        .paper.fold { animation: foldAndFly 1.4s cubic-bezier(0.4, 0, 0.2, 1) forwards; }
+        @keyframes foldAndFly {
+            0% { transform: rotateX(0) scaleY(1) translateY(0) rotateZ(0); opacity: 1; }
+            25% { transform: rotateX(15deg) scaleY(0.7) translateY(20px); }
+            50% { transform: rotateX(40deg) scaleY(0.35) translateY(80px) scale(0.9); box-shadow: 0 15px 30px rgba(0,0,0,0.4); }
+            70% { transform: rotateX(60deg) scaleY(0.3) translateY(40px) scale(0.8) rotateZ(-8deg); }
+            100% { transform: rotateX(75deg) scaleY(0.2) translateY(-300vh) scale(0.2) rotateZ(-20deg); opacity: 0; }
+        }
+        .paper textarea {
+            flex: 1;
+            background: transparent;
+            border: none;
+            resize: none;
+            font-size: 15px;
+            color: #2c2416;
+            font-family: 'Georgia', serif;
+            outline: none;
+            margin-bottom: 10px;
+            min-height: 80px;
+            line-height: 30px;
+            position: relative;
+            z-index: 2;
+        }
+        .paper input {
+            background: transparent;
+            border: none;
+            border-bottom: 2px dashed #b8a9c9;
+            font-size: 15px;
+            color: #2c2416;
+            padding: 5px 0;
+            margin-bottom: 10px;
+            outline: none;
+            font-family: 'Georgia', serif;
+            position: relative;
+            z-index: 2;
+            width: 100%;
+        }
+        .paper input::placeholder, .paper textarea::placeholder { color: #8b7d6b; }
+        .paper-actions { display: flex; gap: 10px; position: relative; z-index: 2; }
+        .paper-actions .btn { flex: 1; padding: 10px; font-size: 14px; }
+
+        .status-msg {
+            margin-top: 20px;
+            padding: 10px;
+            background: rgba(157, 78, 221, 0.2);
+            border-radius: 8px;
+            color: var(--accent-light);
+            font-size: 14px;
+            display: none;
+        }
+        .status-msg.show { display: block; animation: fadeIn 0.5s; }
+        .status-msg.error { background: rgba(255, 77, 109, 0.2); color: var(--danger); }
+
+        #screen-loading { justify-content: center; }
+        .loader {
+            border: 4px solid rgba(157, 78, 221, 0.3);
+            border-top: 4px solid var(--accent-light);
+            border-radius: 50%;
+            width: 50px; height: 50px;
+            animation: spin 1s linear infinite;
+            margin: 20px auto;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- ЗВУКИ -->
+    <audio id="snd-unfold" src="sounds/paper_unfold.mp3" preload="auto"></audio>
+    <audio id="snd-tear" src="sounds/paper_tear.mp3" preload="auto"></audio>
+    <audio id="snd-fold" src="sounds/paper_fold.mp3" preload="auto"></audio>
+    <audio id="snd-success" src="sounds/success_chime.mp3" preload="auto"></audio>
+    <audio id="snd-spin" src="sounds/spin.mp3" preload="auto"></audio>
+    <audio id="snd-capsule" src="sounds/capsule_open.mp3" preload="auto"></audio>
+
+    <!-- ЭКРАН ЗАГРУЗКИ -->
+    <div id="screen-loading" class="screen active">
+        <h1>💜 Privaje</h1>
+        <p class="subtitle">Загрузка...</p>
+        <div class="loader"></div>
+        <p style="color: var(--text-secondary); font-size: 12px;">Подключение к Telegram</p>
+    </div>
+
+    <!-- ГЛАВНЫЙ ЭКРАН -->
+    <div id="screen-main" class="screen">
+        <h1>💜 Privaje</h1>
+        <p class="subtitle" id="user-greeting">Привет!</p>
+        
+        <div id="pinned-challenge" class="pinned-challenge" style="display: none;">
+            <div class="pinned-label">📌 Твой челлендж</div>
+            <div class="pinned-text" id="pinned-text"></div>
+        </div>
+
+        <div class="limits-info" id="limits-info">
+            Сегодня можно создать: <span id="limits-counter">2/2</span> челленджа
+        </div>
+
+        <div id="action-buttons">
+            <button class="btn btn-primary" id="btn-general" onclick="openChallenge(false)">📝 Предложить челлендж</button>
+            <button class="btn btn-secondary" id="btn-friend" onclick="openChallenge(true)">🎯 Челлендж другу</button>
+        </div>
+
+        <div id="timer-section">
+            <div class="timer-container">
+                <div class="timer-label" id="timer-label">До розыгрыша (18:00 МСК)</div>
+                <div class="timer-value" id="timer">--:--:--</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ЭКРАН СОЗДАНИЯ ЧЕЛЛЕНДЖА -->
+    <div id="screen-challenge" class="screen">
+        <div class="paper-wrapper">
+            <div id="paper" class="paper">
+                <textarea id="challenge-text" placeholder="Напиши свой челлендж здесь..."></textarea>
+                <input type="text" id="friend-username" placeholder="@username друга" style="display: none;">
+                <div class="paper-actions">
+                    <button class="btn btn-danger" onclick="cancelChallenge()">️ Отмена</button>
+                    <button class="btn btn-primary" onclick="sendChallenge()">✈️ Отправить</button>
+                </div>
+            </div>
+        </div>
+        <div id="status-msg" class="status-msg">Челлендж отправлен на модерацию!</div>
+    </div>
+
+    <!-- ЭКРАН РАНДОМАЙЗЕРА -->
+    <div id="screen-roulette" class="screen">
+        <div class="roulette-title">🎰 Время розыгрыша!</div>
+        <div class="roulette-subtitle">Нажми кнопку и узнай свой челлендж</div>
+        
+        <div class="roulette-container">
+            <div class="roulette-pointer"></div>
+            <div class="roulette-wheel" id="roulette-wheel">
+                <div class="capsule-slot">💊</div>
+                <div class="capsule-slot">💊</div>
+                <div class="capsule-slot">💊</div>
+                <div class="capsule-slot"></div>
+                <div class="capsule-slot">💊</div>
+                <div class="roulette-center">🎲</div>
+            </div>
+        </div>
+
+        <button class="btn btn-primary" id="spin-btn" onclick="spinRoulette()">🎰 Прокрутить</button>
+    </div>
+
+    <!-- АНИМАЦИЯ КАПСУЛЫ -->
+    <div class="capsule-fall" id="capsule-fall">
+        <div class="capsule-body">
+            <div class="capsule-top"></div>
+            <div class="capsule-bottom"></div>
+        </div>
+    </div>
+
+    <!-- БУМАЖКА ИЗ КАПСУЛЫ -->
+    <div class="paper-from-capsule" id="paper-from-capsule">
+        <div class="paper-content" id="paper-content"></div>
+        <button class="paper-close-btn" onclick="closePaper()">Забрать челлендж</button>
+    </div>
+
+    <script>
+        let isFriendMode = false;
+        let tg = null;
+        let currentUser = null;
+        let limits = { general: false, friend: false };
+        let hasSpunToday = false;
+        let currentChallenge = null;
+
+        const API_BASE = 'http://localhost:3000/api';
+
+        const mockChallenges = [
+            "Сделай 50 отжиманий прямо сейчас и запиши видео",
+            "Напиши стихотворение про программирование за 5 минут",
+            "Позвони другу и спой ему песню",
+            "Сделай селфи в самом странном месте дома",
+            "Напиши код на Python, который рисует котика"
+        ];
+
+        async function initTelegram() {
+            try {
+                await new Promise((resolve, reject) => {
+                    const script = document.createElement('script');
+                    script.src = 'https://telegram.org/js/telegram-web-app.js';
+                    script.onload = resolve;
+                    script.onerror = reject;
+                    document.head.appendChild(script);
+                });
+
+                tg = window.Telegram.WebApp;
+                tg.ready();
+                tg.expand();
+
+                const userData = tg.initDataUnsafe.user;
+                
+                if (userData) {
+                    currentUser = {
+                        telegram_id: userData.id,
+                        username: userData.username || '',
+                        first_name: userData.first_name || '',
+                        last_name: userData.last_name || ''
+                    };
+                } else {
+                    console.log('⚠️ Telegram данные не найдены. Используем тестового пользователя.');
+                    currentUser = {
+                        telegram_id: 999999999,
+                        username: 'test_user',
+                        first_name: 'Тестовый',
+                        last_name: 'Пользователь'
+                    };
+                    showStatus('⚠️ Тестовый режим (открыто вне Telegram)', true);
+                }
+
+                await fetch(`${API_BASE}/user`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(currentUser)
+                });
+
+                await loadLimits();
+
+                document.getElementById('user-greeting').innerText = `Привет, ${currentUser.first_name}!`;
+                switchScreen('screen-loading', 'screen-main');
+                updateLimitsUI();
+                updateTimer();
+
+            } catch (error) {
+                console.error('Ошибка инициализации:', error);
+                currentUser = {
+                    telegram_id: 999999999,
+                    username: 'test_user',
+                    first_name: 'Тестовый',
+                    last_name: 'Пользователь'
+                };
+                await fetch(`${API_BASE}/user`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(currentUser)
+                });
+                await loadLimits();
+                document.getElementById('user-greeting').innerText = `Привет, ${currentUser.first_name}!`;
+                switchScreen('screen-loading', 'screen-main');
+                updateLimitsUI();
+                updateTimer();
+            }
+        }
+
+        async function loadLimits() {
+            if (!currentUser) return;
+            try {
+                const response = await fetch(`${API_BASE}/limits/${currentUser.telegram_id}`);
+                limits = await response.json();
+            } catch (error) {
+                console.error('Ошибка загрузки лимитов:', error);
+            }
+        }
+
+        function updateLimitsUI() {
+            const remaining = (limits.general ? 0 : 1) + (limits.friend ? 0 : 1);
+            document.getElementById('limits-counter').innerText = `${remaining}/2`;
+
+            const btnGeneral = document.getElementById('btn-general');
+            const btnFriend = document.getElementById('btn-friend');
+
+            if (limits.general) {
+                btnGeneral.disabled = true;
+                btnGeneral.innerText = '✅ Общий челлендж уже создан';
+            } else {
+                btnGeneral.disabled = false;
+                btnGeneral.innerText = '📝 Предложить челлендж';
+            }
+
+            if (limits.friend) {
+                btnFriend.disabled = true;
+                btnFriend.innerText = '✅ Челлендж другу уже создан';
+            } else {
+                btnFriend.disabled = false;
+                btnFriend.innerText = '🎯 Челлендж другу';
+            }
+        }
+
+        function switchScreen(hideId, showId) {
+            document.getElementById(hideId).classList.remove('active');
+            document.getElementById(showId).classList.add('active');
+        }
+
+        function showStatus(msg, isError = false) {
+            const status = document.getElementById('status-msg');
+            status.innerText = msg;
+            status.className = 'status-msg show' + (isError ? ' error' : '');
+            setTimeout(() => status.classList.remove('show'), 3000);
+        }
+
+        function playSound(id) {
+            const snd = document.getElementById(id);
+            if (snd) { snd.currentTime = 0; snd.play().catch(e => console.log("Audio:", e)); }
+        }
+
+        function updateTimer() {
+            const now = new Date();
+            const utc = now.getTime() + (now.getTimezoneOffset() * 60000);
+            const msk = new Date(utc + (3600000 * 3));
+            
+            let target = new Date(msk);
+            target.setHours(18, 0, 0, 0);
+
+            const diff = target - msk;
+
+            if (diff <= 0 && !hasSpunToday) {
+                showRoulette();
+                return;
+            }
+
+            if (hasSpunToday) {
+                target.setDate(target.getDate() + 1);
+                document.getElementById('timer-label').innerText = 'До следующего розыгрыша (18:00 МСК)';
+            } else {
+                document.getElementById('timer-label').innerText = 'До розыгрыша (18:00 МСК)';
+            }
+
+            const newDiff = target - msk;
+            const hours = Math.floor((newDiff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+            const minutes = Math.floor((newDiff % (1000 * 60 * 60)) / (1000 * 60));
+            const seconds = Math.floor((newDiff % (1000 * 60)) / 1000);
+
+            document.getElementById('timer').innerText = 
+                `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+        }
+
+        function showRoulette() {
+            switchScreen('screen-main', 'screen-roulette');
+        }
+
+        function spinRoulette() {
+            const wheel = document.getElementById('roulette-wheel');
+            const spinBtn = document.getElementById('spin-btn');
+            
+            spinBtn.disabled = true;
+            playSound('snd-spin');
+            wheel.classList.add('spinning');
+            
+            setTimeout(() => {
+                wheel.classList.remove('spinning');
+                showCapsule();
+            }, 3000);
+        }
+
+        function showCapsule() {
+            const capsule = document.getElementById('capsule-fall');
+            playSound('snd-capsule');
+            capsule.classList.add('show');
+            
+            setTimeout(() => {
+                capsule.classList.add('open');
+                setTimeout(() => {
+                    capsule.style.display = 'none';
+                    showPaperFromCapsule();
+                }, 1500);
+            }, 1000);
+        }
+
+        function showPaperFromCapsule() {
+            currentChallenge = mockChallenges[Math.floor(Math.random() * mockChallenges.length)];
+            const paper = document.getElementById('paper-from-capsule');
+            document.getElementById('paper-content').innerText = currentChallenge;
+            paper.classList.add('show');
+            playSound('snd-unfold');
+            if (tg && tg.HapticFeedback) tg.HapticFeedback.notificationOccurred('success');
+        }
+
+        function closePaper() {
+            const paper = document.getElementById('paper-from-capsule');
+            paper.classList.remove('show');
+            paper.style.display = 'none';
+            
+            switchScreen('screen-roulette', 'screen-main');
+            
+            document.getElementById('pinned-challenge').style.display = 'block';
+            document.getElementById('pinned-text').innerText = currentChallenge;
+            
+            document.getElementById('action-buttons').style.display = 'block';
+            document.getElementById('timer-section').style.display = 'block';
+            
+            hasSpunToday = true;
+            playSound('snd-success');
+            updateLimitsUI();
+        }
+
+        function openChallenge(isFriend) {
+            const type = isFriend ? 'friend' : 'general';
+            if (limits[type]) {
+                showStatus(`Ты уже создавал ${isFriend ? 'челлендж другу' : 'общий челлендж'} сегодня!`, true);
+                return;
+            }
+
+            isFriendMode = isFriend;
+            switchScreen('screen-main', 'screen-challenge');
+            
+            const paper = document.getElementById('paper');
+            const friendInput = document.getElementById('friend-username');
+            const textArea = document.getElementById('challenge-text');
+            
+            paper.className = 'paper';
+            textArea.value = '';
+            friendInput.value = '';
+            document.getElementById('status-msg').classList.remove('show');
+            friendInput.style.display = isFriend ? 'block' : 'none';
+
+            setTimeout(() => {
+                paper.classList.add('unfold');
+                playSound('snd-unfold');
+            }, 50);
+        }
+
+        function cancelChallenge() {
+            const paper = document.getElementById('paper');
+            paper.classList.remove('unfold');
+            paper.classList.add('tear');
+            playSound('snd-tear');
+
+            setTimeout(() => {
+                switchScreen('screen-challenge', 'screen-main');
+            }, 700);
+        }
+
+        async function sendChallenge() {
+            const text = document.getElementById('challenge-text').value.trim();
+            const friend = document.getElementById('friend-username').value.trim();
+
+            if (!text) {
+                showStatus('Напиши текст челленджа!', true);
+                return;
+            }
+
+            if (isFriendMode && !friend) {
+                showStatus('Введи @username друга!', true);
+                return;
+            }
+
+            const type = isFriendMode ? 'friend' : 'general';
+            if (limits[type]) {
+                showStatus('Лимит на сегодня исчерпан!', true);
+                return;
+            }
+
+            const paper = document.getElementById('paper');
+            paper.classList.remove('unfold');
+            paper.classList.add('fold');
+            playSound('snd-fold');
+
+            try {
+                const response = await fetch(`${API_BASE}/challenge`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        user_id: currentUser.telegram_id,
+                        type: type,
+                        text: text,
+                        target_username: isFriendMode ? friend : null
+                    })
+                });
+
+                const result = await response.json();
+
+                if (!response.ok) {
+                    throw new Error(result.error || 'Ошибка отправки');
+                }
+
+                limits[type] = true;
+
+                setTimeout(() => {
+                    switchScreen('screen-challenge', 'screen-main');
+                    playSound('snd-success');
+                    showStatus(isFriendMode 
+                        ? `Челлендж для ${friend} отправлен на модерацию!` 
+                        : 'Челлендж отправлен на модерацию!');
+                    updateLimitsUI();
+                }, 1400);
+
+            } catch (error) {
+                console.error('Ошибка:', error);
+                showStatus('Ошибка отправки: ' + error.message, true);
+                paper.classList.remove('fold');
+                paper.classList.add('unfold');
+            }
+        }
+
+        initTelegram();
+        setInterval(updateTimer, 1000);
+    </script>
+</body>
+</html>

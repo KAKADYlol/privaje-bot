@@ -1,0 +1,4 @@
+node_modules/
+privaje.db
+*.db
+.env
