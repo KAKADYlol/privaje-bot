@@ -139,7 +139,7 @@
         .timer-label { font-size: 12px; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 1px; }
         .timer-value { font-size: 28px; font-weight: bold; color: var(--accent-light); margin-top: 5px; font-variant-numeric: tabular-nums; }
 
-        /* ===== РАНДОМАЙЗЕР ===== */
+        /* РАНДОМАЙЗЕР */
         .roulette-container {
             width: 100%;
             height: 300px;
@@ -216,7 +216,7 @@
             margin-bottom: 20px;
         }
 
-        /* ===== КАПСУЛА ===== */
+        /* КАПСУЛА */
         .capsule-fall {
             position: fixed;
             top: 50%; left: 50%;
@@ -267,7 +267,7 @@
             100% { transform: translateY(30px) rotate(20deg); opacity: 0; }
         }
 
-        /* ===== БУМАЖКА ИЗ КАПСУЛЫ ===== */
+        /* БУМАЖКА ИЗ КАПСУЛЫ */
         .paper-from-capsule {
             position: fixed;
             top: 50%; left: 50%;
@@ -332,7 +332,7 @@
             z-index: 3;
         }
 
-        /* ===== БУМАГА ДЛЯ СОЗДАНИЯ ===== */
+        /* БУМАГА ДЛЯ СОЗДАНИЯ */
         .paper-wrapper {
             width: 100%;
             height: 340px;
@@ -456,11 +456,21 @@
             0% { transform: rotate(0deg); }
             100% { transform: rotate(360deg); }
         }
+
+        .error-message {
+            background: rgba(255, 77, 109, 0.2);
+            border: 1px solid var(--danger);
+            border-radius: 12px;
+            padding: 20px;
+            margin: 20px;
+            text-align: center;
+        }
+        .error-message h3 { color: var(--danger); margin-bottom: 10px; }
+        .error-message p { color: var(--text-secondary); margin-bottom: 15px; }
     </style>
 </head>
 <body>
 
-    <!-- ЗВУКИ -->
     <audio id="snd-unfold" src="sounds/paper_unfold.mp3" preload="auto"></audio>
     <audio id="snd-tear" src="sounds/paper_tear.mp3" preload="auto"></audio>
     <audio id="snd-fold" src="sounds/paper_fold.mp3" preload="auto"></audio>
@@ -468,7 +478,6 @@
     <audio id="snd-spin" src="sounds/spin.mp3" preload="auto"></audio>
     <audio id="snd-capsule" src="sounds/capsule_open.mp3" preload="auto"></audio>
 
-    <!-- ЭКРАН ЗАГРУЗКИ -->
     <div id="screen-loading" class="screen active">
         <h1>💜 Privaje</h1>
         <p class="subtitle">Загрузка...</p>
@@ -476,9 +485,16 @@
         <p style="color: var(--text-secondary); font-size: 12px;">Подключение к Telegram</p>
     </div>
 
-    <!-- ГЛАВНЫЙ ЭКРАН -->
+    <div id="screen-error" class="screen">
+        <div class="error-message">
+            <h3>⚠️ Ошибка подключения</h3>
+            <p>Откройте это приложение через Telegram бота</p>
+            <button class="btn btn-primary" onclick="location.reload()">🔄 Повторить</button>
+        </div>
+    </div>
+
     <div id="screen-main" class="screen">
-        <h1>💜 Privaje</h1>
+        <h1> Privaje</h1>
         <p class="subtitle" id="user-greeting">Привет!</p>
         
         <div id="pinned-challenge" class="pinned-challenge" style="display: none;">
@@ -503,14 +519,13 @@
         </div>
     </div>
 
-    <!-- ЭКРАН СОЗДАНИЯ ЧЕЛЛЕНДЖА -->
     <div id="screen-challenge" class="screen">
         <div class="paper-wrapper">
             <div id="paper" class="paper">
                 <textarea id="challenge-text" placeholder="Напиши свой челлендж здесь..."></textarea>
                 <input type="text" id="friend-username" placeholder="@username друга" style="display: none;">
                 <div class="paper-actions">
-                    <button class="btn btn-danger" onclick="cancelChallenge()">️ Отмена</button>
+                    <button class="btn btn-danger" onclick="cancelChallenge()">✂️ Отмена</button>
                     <button class="btn btn-primary" onclick="sendChallenge()">✈️ Отправить</button>
                 </div>
             </div>
@@ -518,7 +533,6 @@
         <div id="status-msg" class="status-msg">Челлендж отправлен на модерацию!</div>
     </div>
 
-    <!-- ЭКРАН РАНДОМАЙЗЕРА -->
     <div id="screen-roulette" class="screen">
         <div class="roulette-title">🎰 Время розыгрыша!</div>
         <div class="roulette-subtitle">Нажми кнопку и узнай свой челлендж</div>
@@ -528,8 +542,8 @@
             <div class="roulette-wheel" id="roulette-wheel">
                 <div class="capsule-slot">💊</div>
                 <div class="capsule-slot">💊</div>
-                <div class="capsule-slot">💊</div>
                 <div class="capsule-slot"></div>
+                <div class="capsule-slot">💊</div>
                 <div class="capsule-slot">💊</div>
                 <div class="roulette-center">🎲</div>
             </div>
@@ -538,7 +552,6 @@
         <button class="btn btn-primary" id="spin-btn" onclick="spinRoulette()">🎰 Прокрутить</button>
     </div>
 
-    <!-- АНИМАЦИЯ КАПСУЛЫ -->
     <div class="capsule-fall" id="capsule-fall">
         <div class="capsule-body">
             <div class="capsule-top"></div>
@@ -546,7 +559,6 @@
         </div>
     </div>
 
-    <!-- БУМАЖКА ИЗ КАПСУЛЫ -->
     <div class="paper-from-capsule" id="paper-from-capsule">
         <div class="paper-content" id="paper-content"></div>
         <button class="paper-close-btn" onclick="closePaper()">Забрать челлендж</button>
@@ -560,8 +572,7 @@
         let hasSpunToday = false;
         let currentChallenge = null;
 
-        const API_BASE = 'http://localhost:3000/api';
-
+        const API_BASE = 'https://privaje-bot.onrender.com/api';
         const mockChallenges = [
             "Сделай 50 отжиманий прямо сейчас и запиши видео",
             "Напиши стихотворение про программирование за 5 минут",
@@ -576,7 +587,7 @@
                     const script = document.createElement('script');
                     script.src = 'https://telegram.org/js/telegram-web-app.js';
                     script.onload = resolve;
-                    script.onerror = reject;
+                    script.onerror = () => reject(new Error('Не удалось загрузить Telegram SDK'));
                     document.head.appendChild(script);
                 });
 
@@ -586,23 +597,16 @@
 
                 const userData = tg.initDataUnsafe.user;
                 
-                if (userData) {
-                    currentUser = {
-                        telegram_id: userData.id,
-                        username: userData.username || '',
-                        first_name: userData.first_name || '',
-                        last_name: userData.last_name || ''
-                    };
-                } else {
-                    console.log('⚠️ Telegram данные не найдены. Используем тестового пользователя.');
-                    currentUser = {
-                        telegram_id: 999999999,
-                        username: 'test_user',
-                        first_name: 'Тестовый',
-                        last_name: 'Пользователь'
-                    };
-                    showStatus('⚠️ Тестовый режим (открыто вне Telegram)', true);
+                if (!userData) {
+                    throw new Error('Нет данных пользователя Telegram');
                 }
+
+                currentUser = {
+                    telegram_id: userData.id,
+                    username: userData.username || '',
+                    first_name: userData.first_name || '',
+                    last_name: userData.last_name || ''
+                };
 
                 await fetch(`${API_BASE}/user`, {
                     method: 'POST',
@@ -619,27 +623,13 @@
 
             } catch (error) {
                 console.error('Ошибка инициализации:', error);
-                currentUser = {
-                    telegram_id: 999999999,
-                    username: 'test_user',
-                    first_name: 'Тестовый',
-                    last_name: 'Пользователь'
-                };
-                await fetch(`${API_BASE}/user`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(currentUser)
-                });
-                await loadLimits();
-                document.getElementById('user-greeting').innerText = `Привет, ${currentUser.first_name}!`;
-                switchScreen('screen-loading', 'screen-main');
-                updateLimitsUI();
-                updateTimer();
+                switchScreen('screen-loading', 'screen-error');
             }
         }
 
         async function loadLimits() {
             if (!currentUser) return;
+            
             try {
                 const response = await fetch(`${API_BASE}/limits/${currentUser.telegram_id}`);
                 limits = await response.json();
@@ -699,7 +689,13 @@
 
             const diff = target - msk;
 
-            if (diff <= 0 && !hasSpunToday) {
+            // Проверяем, наступило ли время 18:00
+            const isRouletteTime = diff <= 0;
+
+            // Проверяем, создал ли пользователь хотя бы один челлендж сегодня
+            const hasCreatedChallenges = limits.general || limits.friend;
+
+            if (isRouletteTime && hasCreatedChallenges && !hasSpunToday) {
                 showRoulette();
                 return;
             }
@@ -707,6 +703,11 @@
             if (hasSpunToday) {
                 target.setDate(target.getDate() + 1);
                 document.getElementById('timer-label').innerText = 'До следующего розыгрыша (18:00 МСК)';
+            } else if (isRouletteTime && !hasCreatedChallenges) {
+                // Время пришло, но пользователь не создал челленджи
+                document.getElementById('timer-label').innerText = 'Создайте челлендж для участия!';
+                document.getElementById('timer').innerText = '--:--:--';
+                return;
             } else {
                 document.getElementById('timer-label').innerText = 'До розыгрыша (18:00 МСК)';
             }
