@@ -11,7 +11,7 @@ const PORT = process.env.PORT || 3000;
 const BOT_TOKEN = process.env.BOT_TOKEN || '8794366768:AAHxVuiUOgFD0DSN9PZGQj2-LyA2uPdcw78';
 const ADMIN_ID = parseInt(process.env.ADMIN_ID || '7615268252');
 
-console.log('🔧 Конфигурация:');
+console.log(' Конфигурация:');
 console.log(`   BOT_TOKEN: ${BOT_TOKEN.substring(0, 20)}...`);
 console.log(`   ADMIN_ID: ${ADMIN_ID}`);
 
@@ -105,7 +105,6 @@ app.post('/api/challenge', (req, res) => {
         });
 });
 
-// Получить доступные челленджи для розыгрыша (одобренные и не выданные)
 app.get('/api/available-challenges', (req, res) => {
     db.all(`SELECT id, text, user_id FROM challenges WHERE status = 'approved' AND assigned_to IS NULL ORDER BY RANDOM()`, 
         [], (err, rows) => {
@@ -114,7 +113,6 @@ app.get('/api/available-challenges', (req, res) => {
         });
 });
 
-// Назначить челлендж пользователю (атомарно — только если ещё не выдан)
 app.post('/api/assign-challenge', (req, res) => {
     const { user_id, challenge_id } = req.body;
     const now = new Date().toISOString();
@@ -131,7 +129,6 @@ app.post('/api/assign-challenge', (req, res) => {
         });
 });
 
-// Получить текущий челлендж пользователя (выданный за последние 24 часа)
 app.get('/api/user-challenge/:userId', (req, res) => {
     const userId = req.params.userId;
     const yesterday = new Date();
@@ -144,7 +141,6 @@ app.get('/api/user-challenge/:userId', (req, res) => {
         });
 });
 
-// Проверить, крутил ли пользователь колесо сегодня
 app.get('/api/has-spun/:userId', (req, res) => {
     const userId = req.params.userId;
     const today = new Date().toISOString().split('T')[0];
@@ -171,7 +167,7 @@ bot.start((ctx) => {
         );
     } else {
         ctx.reply(
-            ` Привет, ${firstName}! Добро пожаловать в Privaje Challenges! 💜\n\n` +
+            `👋 Привет, ${firstName}! Добро пожаловать в Privaje Challenges! 💜\n\n` +
             `Нажми кнопку ниже, чтобы начать:`,
             Markup.inlineKeyboard([[Markup.button.webApp('🎮 Открыть челленджи', webAppUrl)]])
         );
@@ -179,7 +175,7 @@ bot.start((ctx) => {
 });
 
 bot.action(/^approve_(\d+)$/, async (ctx) => {
-    if (ctx.chat.id !== ADMIN_ID) return ctx.answerCbQuery('⛔ Нет прав');
+    if (ctx.chat.id !== ADMIN_ID) return ctx.answerCbQuery(' Нет прав');
     const id = ctx.match[1];
     
     console.log(`✅ Админ одобрил челлендж #${id}`);
@@ -187,7 +183,7 @@ bot.action(/^approve_(\d+)$/, async (ctx) => {
     db.run(`UPDATE challenges SET status = 'approved' WHERE id = ?`, [id], () => {
         db.get(`SELECT * FROM challenges WHERE id = ?`, [id], (err, ch) => {
             if (ch && ch.user_id !== ADMIN_ID) {
-                bot.telegram.sendMessage(ch.user_id, `✅ Твой челлендж одобрен!\n\n"${ch.text}"\n\nОн участвует в розыгрыше в 18:00 МСК! 🎲`).catch(() => {});
+                bot.telegram.sendMessage(ch.user_id, `✅ Твой челлендж одобрен!\n\n"${ch.text}"\n\nОн участвует в розыгрыше в 18:00 МСК! `).catch(() => {});
             }
             ctx.editMessageText(`✅ Одобрено: "${ch?.text || 'неизвестно'}"`).catch(() => {});
             ctx.answerCbQuery('Одобрено!');
@@ -196,7 +192,7 @@ bot.action(/^approve_(\d+)$/, async (ctx) => {
 });
 
 bot.action(/^reject_(\d+)$/, async (ctx) => {
-    if (ctx.chat.id !== ADMIN_ID) return ctx.answerCbQuery('⛔ Нет прав');
+    if (ctx.chat.id !== ADMIN_ID) return ctx.answerCbQuery(' Нет прав');
     const id = ctx.match[1];
     
     console.log(`❌ Админ отклонил челлендж #${id}`);
@@ -212,36 +208,30 @@ bot.action(/^reject_(\d+)$/, async (ctx) => {
     });
 });
 
-// Экранирование текста для Markdown
-function escapeMarkdown(text) {
-    return text.replace(/[_*`\[\]]/g, '\\$&');
-}
-
 function sendToModeration(challengeId, text, userId, targetUsername) {
-    console.log(` Функция sendToModeration вызвана для челленджа #${challengeId}, админ ID: ${ADMIN_ID}`);
+    console.log(`📤 Функция sendToModeration вызвана для челленджа #${challengeId}, админ ID: ${ADMIN_ID}`);
     
-    // Формируем сообщение БЕЗ parse_mode — чтобы кнопки точно пришли
     let msg = `📝 Новый челлендж на модерацию!\n\n`;
     msg += `🆔 ID: ${challengeId}\n`;
     msg += `👤 От пользователя ID: ${userId}\n`;
-    msg += `📄 Текст: "${text}"\n`;
+    msg += ` Текст: "${text}"\n`;
     if (targetUsername) {
-        msg += `🎯 Для пользователя: ${targetUsername}\n`;
+        msg += ` Для пользователя: ${targetUsername}\n`;
     }
     msg += `\nНажми кнопку ниже:`;
     
+    // ИСПРАВЛЕНИЕ: передаём keyboard как третий аргумент, без обёртки {reply_markup: ...}
     const keyboard = Markup.inlineKeyboard([
         [Markup.button.callback('✅ Одобрить', `approve_${challengeId}`)],
         [Markup.button.callback('❌ Отклонить', `reject_${challengeId}`)]
     ]);
 
-    bot.telegram.sendMessage(ADMIN_ID, msg, { 
-        reply_markup: keyboard
-    }).then(() => {
+    bot.telegram.sendMessage(ADMIN_ID, msg, keyboard).then(() => {
         console.log(`✅ Сообщение о модерации #${challengeId} успешно отправлено админу ${ADMIN_ID}`);
     }).catch(err => {
         console.error(`❌ Ошибка отправки сообщения админу: ${err.message}`);
         console.error(`   Описание: ${err.response?.description || 'нет описания'}`);
+        console.error(`   Параметры:`, err.response?.parameters || 'нет параметров');
     });
 }
 

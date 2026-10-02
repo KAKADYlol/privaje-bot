@@ -88,6 +88,11 @@
             color: var(--danger);
             border: 1px solid var(--danger);
         }
+        .btn-later {
+            background: transparent;
+            color: var(--text-secondary);
+            border: 1px solid var(--text-secondary);
+        }
 
         .pinned-challenge {
             width: 100%;
@@ -139,7 +144,6 @@
         .timer-label { font-size: 12px; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 1px; }
         .timer-value { font-size: 28px; font-weight: bold; color: var(--accent-light); margin-top: 5px; font-variant-numeric: tabular-nums; }
 
-        /* РАНДОМАЙЗЕР */
         .roulette-container {
             width: 100%;
             height: 300px;
@@ -216,7 +220,6 @@
             margin-bottom: 20px;
         }
 
-        /* КАПСУЛА */
         .capsule-fall {
             position: fixed;
             top: 50%; left: 50%;
@@ -267,7 +270,6 @@
             100% { transform: translateY(30px) rotate(20deg); opacity: 0; }
         }
 
-        /* БУМАЖКА ИЗ КАПСУЛЫ */
         .paper-from-capsule {
             position: fixed;
             top: 50%; left: 50%;
@@ -332,7 +334,6 @@
             z-index: 3;
         }
 
-        /* БУМАГА ДЛЯ СОЗДАНИЯ */
         .paper-wrapper {
             width: 100%;
             height: 340px;
@@ -534,7 +535,7 @@
     </div>
 
     <div id="screen-roulette" class="screen">
-        <div class="roulette-title">🎰 Время розыгрыша!</div>
+        <div class="roulette-title"> Время розыгрыша!</div>
         <div class="roulette-subtitle">Нажми кнопку и узнай свой челлендж</div>
         
         <div class="roulette-container">
@@ -549,7 +550,8 @@
             </div>
         </div>
 
-        <button class="btn btn-primary" id="spin-btn" onclick="spinRoulette()">🎰 Прокрутить</button>
+        <button class="btn btn-primary" id="spin-btn" onclick="spinRoulette()"> Прокрутить</button>
+        <button class="btn btn-later" onclick="closeRoulette()">⏰ Позже</button>
     </div>
 
     <div class="capsule-fall" id="capsule-fall">
@@ -609,12 +611,10 @@
 
                 await loadLimits();
                 
-                // Проверяем, крутил ли пользователь колесо сегодня (с сервера)
                 const spinResponse = await fetch(`${API_BASE}/has-spun/${currentUser.telegram_id}`);
                 const spinData = await spinResponse.json();
                 hasSpunToday = spinData.hasSpun;
                 
-                // Проверяем, есть ли у пользователя текущий челлендж
                 const challengeResponse = await fetch(`${API_BASE}/user-challenge/${currentUser.telegram_id}`);
                 const userChallenge = await challengeResponse.json();
                 
@@ -664,7 +664,7 @@
                 btnFriend.innerText = '✅ Челлендж другу уже создан';
             } else {
                 btnFriend.disabled = false;
-                btnFriend.innerText = '🎯 Челлендж другу';
+                btnFriend.innerText = ' Челлендж другу';
             }
         }
 
@@ -726,6 +726,11 @@
             switchScreen('screen-main', 'screen-roulette');
         }
 
+        function closeRoulette() {
+            // Возвращаемся на главный экран без прокрутки
+            switchScreen('screen-roulette', 'screen-main');
+        }
+
         function spinRoulette() {
             const wheel = document.getElementById('roulette-wheel');
             const spinBtn = document.getElementById('spin-btn');
@@ -779,7 +784,7 @@
                 const result = await assignResponse.json();
                 
                 if (!assignResponse.ok) {
-                    alert('Этот челлендж уже выдали другому! Крути ещё раз ');
+                    alert('Этот челлендж уже выдали другому! Крути ещё раз 🎲');
                     switchScreen('screen-roulette', 'screen-main');
                     setTimeout(() => showRoulette(), 1000);
                     return;
