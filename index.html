@@ -499,7 +499,7 @@
         <p class="subtitle" id="user-greeting">Привет!</p>
         
         <div id="pinned-challenge" class="pinned-challenge" style="display: none;">
-            <div class="pinned-label">📌 Твой челлендж</div>
+            <div class="pinned-label"> Твой челлендж</div>
             <div class="pinned-text" id="pinned-text"></div>
         </div>
 
@@ -535,7 +535,7 @@
     </div>
 
     <div id="screen-roulette" class="screen">
-        <div class="roulette-title"> Время розыгрыша!</div>
+        <div class="roulette-title">🎰 Время розыгрыша!</div>
         <div class="roulette-subtitle">Нажми кнопку и узнай свой челлендж</div>
         
         <div class="roulette-container">
@@ -550,8 +550,8 @@
             </div>
         </div>
 
-        <button class="btn btn-primary" id="spin-btn" onclick="spinRoulette()"> Прокрутить</button>
-        <button class="btn btn-later" onclick="closeRoulette()">⏰ Позже</button>
+        <button class="btn btn-primary" id="spin-btn" onclick="spinRoulette()">🎰 Прокрутить</button>
+        <button class="btn btn-later" onclick="postponeRoulette()">⏰ Позже</button>
     </div>
 
     <div class="capsule-fall" id="capsule-fall">
@@ -572,6 +572,7 @@
         let currentUser = null;
         let limits = { general: false, friend: false };
         let hasSpunToday = false;
+        let roulettePostponed = false; // НОВЫЙ ФЛАГ: блокирует повторное открытие колеса
         let currentChallenge = null;
 
         const API_BASE = 'https://privaje-bot.onrender.com/api';
@@ -697,7 +698,8 @@
             const isRouletteTime = diff <= 0;
             const hasCreatedChallenges = limits.general || limits.friend;
 
-            if (isRouletteTime && hasCreatedChallenges && !hasSpunToday) {
+            // ИСПРАВЛЕНИЕ: добавлена проверка roulettePostponed
+            if (isRouletteTime && hasCreatedChallenges && !hasSpunToday && !roulettePostponed) {
                 showRoulette();
                 return;
             }
@@ -709,6 +711,10 @@
                 document.getElementById('timer-label').innerText = 'Создайте челлендж для участия!';
                 document.getElementById('timer').innerText = '--:--:--';
                 return;
+            } else if (roulettePostponed) {
+                // Показываем кнопку для возврата к колесу
+                document.getElementById('timer-label').innerText = 'Розыгрыш доступен';
+                document.getElementById('timer').innerText = '🎰';
             } else {
                 document.getElementById('timer-label').innerText = 'До розыгрыша (18:00 МСК)';
             }
@@ -726,9 +732,25 @@
             switchScreen('screen-main', 'screen-roulette');
         }
 
-        function closeRoulette() {
-            // Возвращаемся на главный экран без прокрутки
+        // НОВАЯ ФУНКЦИЯ: отложить колесо
+        function postponeRoulette() {
+            roulettePostponed = true;
             switchScreen('screen-roulette', 'screen-main');
+            
+            // Показываем таймер с кнопкой возврата к колесу
+            document.getElementById('timer-label').innerText = 'Розыгрыш доступен';
+            document.getElementById('timer').innerText = '🎰';
+            
+            // Добавляем обработчик клика по таймеру для возврата к колесу
+            const timerSection = document.getElementById('timer-section');
+            timerSection.style.cursor = 'pointer';
+            timerSection.onclick = () => {
+                if (roulettePostponed && !hasSpunToday) {
+                    timerSection.onclick = null;
+                    timerSection.style.cursor = 'default';
+                    showRoulette();
+                }
+            };
         }
 
         function spinRoulette() {
@@ -818,6 +840,7 @@
             document.getElementById('timer-section').style.display = 'block';
             
             hasSpunToday = true;
+            roulettePostponed = false;
             playSound('snd-success');
             updateLimitsUI();
         }
