@@ -45,10 +45,7 @@
             text-align: center;
             animation: fadeIn 0.5s ease;
             position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
+            top: 0; left: 0; right: 0; bottom: 0;
             overflow-y: auto;
         }
         .screen.active { display: flex !important; }
@@ -107,13 +104,11 @@
         }
         .friend-badge {
             position: absolute;
-            top: -8px;
-            right: -8px;
+            top: -8px; right: -8px;
             background: #ff4d6d;
             color: white;
             border-radius: 50%;
-            width: 24px;
-            height: 24px;
+            width: 24px; height: 24px;
             display: flex;
             align-items: center;
             justify-content: center;
@@ -557,7 +552,7 @@
 
     <div id="screen-error" class="screen">
         <div class="error-message">
-            <h3>️ Ошибка подключения</h3>
+            <h3>⚠️ Ошибка подключения</h3>
             <p>Откройте это приложение через Telegram бота</p>
             <button class="btn btn-primary" onclick="location.reload()">🔄 Повторить</button>
         </div>
@@ -568,7 +563,7 @@
         <p class="subtitle" id="user-greeting">Привет!</p>
         
         <div id="pinned-challenge" class="pinned-challenge" style="display: none;">
-            <div class="pinned-label">📌 Твой челлендж</div>
+            <div class="pinned-label"> Твой челлендж</div>
             <div class="pinned-text" id="pinned-text"></div>
         </div>
 
@@ -606,7 +601,7 @@
                 <input type="text" id="friend-username" placeholder="@username друга" style="display: none;">
                 <div class="paper-actions">
                     <button class="btn btn-danger" onclick="cancelChallenge()">✂️ Отмена</button>
-                    <button class="btn btn-primary" onclick="sendChallenge()">️ Отправить</button>
+                    <button class="btn btn-primary" onclick="sendChallenge()">✈️ Отправить</button>
                 </div>
             </div>
         </div>
@@ -620,11 +615,11 @@
         <div class="roulette-container">
             <div class="roulette-pointer"></div>
             <div class="roulette-wheel" id="roulette-wheel">
-                <div class="capsule-slot"></div>
                 <div class="capsule-slot">💊</div>
                 <div class="capsule-slot">💊</div>
                 <div class="capsule-slot">💊</div>
-                <div class="capsule-slot"></div>
+                <div class="capsule-slot">💊</div>
+                <div class="capsule-slot">💊</div>
                 <div class="roulette-center">🎲</div>
             </div>
         </div>
@@ -713,11 +708,11 @@
 
                 await loadLimits();
                 
-                // Загружаем дружеские челленджи только если есть username
                 if (currentUser.username) {
                     await loadFriendChallenges();
                 }
                 
+                // Проверяем localStorage (дополнительная защита)
                 const today = new Date().toISOString().split('T')[0];
                 const localStorageKey = `spun_${currentUser.telegram_id}_${today}`;
                 const hasSpunLocally = localStorage.getItem(localStorageKey) === 'true';
@@ -833,7 +828,7 @@
                 
             } catch (error) {
                 console.error('Ошибка принятия челленджа:', error);
-                alert('❌ Ошибка: ' + error.message);
+                alert(' Ошибка: ' + error.message);
             }
         }
 
@@ -857,7 +852,7 @@
                 btnFriend.innerText = '✅ Челлендж другу уже создан';
             } else {
                 btnFriend.disabled = false;
-                btnFriend.innerText = '🎯 Челлендж другу';
+                btnFriend.innerText = ' Челлендж другу';
             }
         }
 
@@ -884,6 +879,35 @@
             const now = new Date();
             const utc = now.getTime() + (now.getTimezoneOffset() * 60000);
             const msk = new Date(utc + (3600000 * 3));
+            
+            // === СБРОС ФЛАГОВ ПРИ НОВОМ ДНЕ ===
+            const todayStr = msk.toISOString().split('T')[0];
+            const lastResetDate = localStorage.getItem('lastResetDate');
+            if (lastResetDate !== todayStr) {
+                roulettePostponed = false;
+                hasSpunToday = false;
+                localStorage.setItem('lastResetDate', todayStr);
+                console.log('🔄 Новый день! Сброшены флаги postponed и spun');
+            }
+            
+            // === ПРОВЕРКА ДАТЫ ЗАПУСКА ===
+            const LAUNCH_DATE = new Date('2026-10-05T18:00:00+03:00');
+            if (msk < LAUNCH_DATE) {
+                const diff = LAUNCH_DATE - msk;
+                const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+                const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+                const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+                const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+                
+                document.getElementById('timer-label').innerText = '🚀 До официального запуска';
+                document.getElementById('timer').innerText = 
+                    `${days}д ${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+                
+                const rouletteBtn = document.querySelector('.btn-roulette');
+                if (rouletteBtn) rouletteBtn.style.display = 'none';
+                
+                return;
+            }
             
             let target = new Date(msk);
             target.setHours(18, 0, 0, 0);
@@ -995,7 +1019,7 @@
                 const result = await assignResponse.json();
                 
                 if (!assignResponse.ok) {
-                    alert('⚠️ ' + (result.error || 'Этот челлендж уже выдали другому! Крути ещё раз 🎲'));
+                    alert('️ ' + (result.error || 'Этот челлендж уже выдали другому! Крути ещё раз 🎲'));
                     switchScreen('screen-roulette', 'screen-main');
                     setTimeout(() => showRoulette(), 1000);
                     return;
