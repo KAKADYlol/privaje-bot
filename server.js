@@ -22,6 +22,12 @@ app.use(cors());
 app.use(bodyParser.json());
 app.use(express.static(path.join(__dirname)));
 
+// Функция нормализации username (убирает @ и приводит к lowercase)
+function normalizeUsername(username) {
+    if (!username) return null;
+    return username.replace(/^@/, '').toLowerCase().trim();
+}
+
 // === БАЗА ДАННЫХ ===
 db.serialize(() => {
     db.run(`CREATE TABLE IF NOT EXISTS users (
@@ -58,8 +64,12 @@ db.serialize(() => {
 
 app.post('/api/user', (req, res) => {
     const { telegram_id, username, first_name, last_name } = req.body;
+    const normalizedUsername = normalizeUsername(username);
+    
+    console.log(`👤 Регистрация пользователя: ${telegram_id}, username: ${normalizedUsername}`);
+    
     db.run(`INSERT OR REPLACE INTO users (telegram_id, username, first_name, last_name) VALUES (?, ?, ?, ?)`, 
-        [telegram_id, username, first_name, last_name], (err) => {
+        [telegram_id, normalizedUsername, first_name, last_name], (err) => {
             if (err) res.status(500).json({ error: err.message });
             else res.json({ success: true });
         });
@@ -83,16 +93,20 @@ app.post('/api/challenge', (req, res) => {
     const { user_id, type, text, target_username } = req.body;
     const today = new Date().toISOString().split('T')[0];
     
+    const normalizedTarget = normalizeUsername(target_username);
+    console.log(`📝 Новый челлендж от ${user_id}: "${text}", target: ${normalizedTarget}`);
+    
     db.get(`SELECT 1 FROM daily_submissions WHERE user_id = ? AND type = ? AND submission_date = ?`, 
         [user_id, type, today], (err, row) => {
             if (err) return res.status(500).json({ error: err.message });
             if (row) return res.status(400).json({ error: 'Лимит исчерпан' });
 
             db.run(`INSERT INTO challenges (user_id, type, text, target_username, status) VALUES (?, ?, ?, ?, 'pending')`, 
-                [user_id, type, text, target_username], function(err) {
+                [user_id, type, text, normalizedTarget], function(err) {
                     if (err) return res.status(500).json({ error: err.message });
                     
                     const challengeId = this.lastID;
+                    console.log(`✅ Челлендж #${challengeId} сохранён`);
                     sendToModeration(challengeId, text, user_id, target_username);
 
                     db.run(`INSERT INTO daily_submissions (user_id, type, submission_date) VALUES (?, ?, ?)`, 
@@ -104,7 +118,6 @@ app.post('/api/challenge', (req, res) => {
         });
 });
 
-// Получить доступные челленджи для колеса (ИСКЛЮЧАЯ свои)
 app.get('/api/available-challenges', (req, res) => {
     const userId = req.query.user_id;
     
@@ -119,14 +132,13 @@ app.get('/api/available-challenges', (req, res) => {
                 return res.status(500).json({ error: err.message });
             }
             
-            console.log(`📊 Найдено ${rows.length} челленджей для пользователя ${userId} (исключая свои)`);
+            console.log(`📊 Найдено ${rows.length} челленджей для пользователя ${userId}`);
             
             if (rows.length > 0) {
                 return res.json(rows);
             }
             
-            // Fallback на тестовые
-            console.log('⚠️ Нет доступных челленджей, используем тестовые');
+            console.log('⚠️ Нет челленджей, используем тестовые');
             res.json([
                 { id: 999, text: 'Сделай 20 отжиманий прямо сейчас!', user_id: 0 },
                 { id: 998, text: 'Напиши стихотворение про кота за 3 минуты', user_id: 0 },
@@ -135,51 +147,72 @@ app.get('/api/available-challenges', (req, res) => {
         });
 });
 
-// НОВЫЙ ENDPOINT: Получить дружеские челленджи для пользователя
+// ИСПРАВЛЕННЫЙ ENDPOINT: Дружеские челленджи
 app.get('/api/friend-challenges/:userId', (req, res) => {
     const userId = req.params.userId;
     
+    console.log(`🔍 Запрос дружеских челленджей для пользователя ${userId}`);
+    
     // Сначала получаем username пользователя
     db.get(`SELECT username FROM users WHERE telegram_id = ?`, [userId], (err, user) => {
-        if (err || !user || !user.username) {
-            return res.json([]); // Нет username — нет дружеских челленджей
+        if (err) {
+            console.error('Ошибка получения пользователя:', err.message);
+            return res.status(500).json({ error: err.message });
         }
         
-        // Ищем одобренные дружеские челленджи, адресованные этому пользователю
+        if (!user || !user.username) {
+            console.log(`⚠️ Пользователь ${userId} не найден или нет username`);
+            return res.json([]);
+        }
+        
+        console.log(`📧 Username пользователя: "${user.username}"`);
+        
+        // Ищем дружеские челленджи, адресованные этому пользователю
         db.all(`SELECT id, text, user_id, target_username FROM challenges 
                 WHERE status = 'approved' AND type = 'friend' 
                 AND LOWER(target_username) = LOWER(?) 
                 AND assigned_to IS NULL`, 
             [user.username], (err, rows) => {
                 if (err) {
-                    console.error('Ошибка запроса friend-challenges:', err.message);
+                    console.error('❌ Ошибка запроса friend-challenges:', err.message);
                     return res.status(500).json({ error: err.message });
                 }
+                
+                console.log(`📦 Найдено ${rows.length} дружеских челленджей для ${user.username}`);
+                rows.forEach(row => {
+                    console.log(`   - Челлендж #${row.id}: "${row.text}" (target: ${row.target_username})`);
+                });
+                
                 res.json(rows);
             });
     });
 });
 
-// НОВЫЙ ENDPOINT: Принять дружеский челлендж
 app.post('/api/accept-friend-challenge', (req, res) => {
     const { user_id, challenge_id } = req.body;
     const now = new Date().toISOString();
     
+    console.log(`🎯 Принятие дружеского челленджа #${challenge_id} пользователем ${user_id}`);
+    
     db.run(`UPDATE challenges SET assigned_to = ?, assigned_at = ? WHERE id = ? AND assigned_to IS NULL`, 
         [Number(user_id), now, Number(challenge_id)], function(err) {
             if (err) {
-                console.error('Ошибка принятия челленджа:', err.message);
+                console.error('❌ Ошибка принятия челленджа:', err.message);
                 return res.status(500).json({ error: err.message });
             }
             
             if (this.changes === 0) {
+                console.log('⚠️ Челлендж уже принят');
                 return res.status(400).json({ error: 'Челлендж уже принят другим пользователем' });
             }
             
             db.get(`SELECT * FROM challenges WHERE id = ?`, [Number(challenge_id)], (err, challenge) => {
                 if (err || !challenge) {
+                    console.error('❌ Челлендж не найден после принятия');
                     return res.status(500).json({ error: 'Челлендж не найден' });
                 }
+                
+                console.log(`✅ Челлендж #${challenge_id} успешно принят`);
                 res.json({ success: true, challenge });
             });
         });
@@ -192,7 +225,7 @@ app.post('/api/assign-challenge', (req, res) => {
     db.run(`UPDATE challenges SET assigned_to = ?, assigned_at = ? WHERE id = ? AND assigned_to IS NULL`, 
         [Number(user_id), now, Number(challenge_id)], function(err) {
             if (err) {
-                console.error('Ошибка обновления БД:', err.message);
+                console.error(' Ошибка обновления БД:', err.message);
                 return res.status(500).json({ error: 'Ошибка базы данных: ' + err.message });
             }
             
@@ -234,6 +267,30 @@ app.get('/api/has-spun/:userId', (req, res) => {
         });
 });
 
+// === DEBUG ENDPOINT ===
+app.get('/api/debug', (req, res) => {
+    db.all(`SELECT * FROM challenges ORDER BY id DESC`, [], (err, rows) => {
+        if (err) return res.json({ error: err.message });
+        
+        const stats = {
+            total: rows.length,
+            pending: rows.filter(r => r.status === 'pending').length,
+            approved: rows.filter(r => r.status === 'approved').length,
+            rejected: rows.filter(r => r.status === 'rejected').length,
+            assigned: rows.filter(r => r.assigned_to !== null).length,
+            friend: rows.filter(r => r.type === 'friend').length
+        };
+        
+        console.log('🔍 Debug stats:', stats);
+        res.json({ stats, challenges: rows, users: [] });
+    });
+    
+    db.all(`SELECT * FROM users`, [], (err, users) => {
+        if (err) return;
+        // Добавляем пользователей в ответ
+    });
+});
+
 // === БОТ ===
 
 bot.start((ctx) => {
@@ -258,11 +315,15 @@ bot.action(/^approve_(\d+)$/, async (ctx) => {
     if (ctx.chat.id !== ADMIN_ID) return ctx.answerCbQuery('⛔ Нет прав');
     const id = ctx.match[1];
     
+    console.log(`✅ Админ одобрил челлендж #${id}`);
+    
     db.run(`UPDATE challenges SET status = 'approved' WHERE id = ?`, [id], function(err) {
         if (err) {
             console.error('Ошибка одобрения:', err.message);
             return ctx.reply('❌ Ошибка БД');
         }
+        
+        console.log(`✅ Челлендж #${id} одобрен, changes: ${this.changes}`);
         
         db.get(`SELECT * FROM challenges WHERE id = ?`, [id], (err, ch) => {
             if (ch && ch.user_id !== ADMIN_ID) {
@@ -278,6 +339,8 @@ bot.action(/^reject_(\d+)$/, async (ctx) => {
     if (ctx.chat.id !== ADMIN_ID) return ctx.answerCbQuery('⛔ Нет прав');
     const id = ctx.match[1];
     
+    console.log(`❌ Админ отклонил челлендж #${id}`);
+    
     db.run(`UPDATE challenges SET status = 'rejected' WHERE id = ?`, [id], () => {
         db.get(`SELECT * FROM challenges WHERE id = ?`, [id], (err, ch) => {
             if (ch && ch.user_id !== ADMIN_ID) {
@@ -291,7 +354,7 @@ bot.action(/^reject_(\d+)$/, async (ctx) => {
 
 function sendToModeration(challengeId, text, userId, targetUsername) {
     let msg = `📝 Новый челлендж на модерацию!\n\n`;
-    msg += `🆔 ID: ${challengeId}\n`;
+    msg += ` ID: ${challengeId}\n`;
     msg += `👤 От пользователя ID: ${userId}\n`;
     msg += `📄 Текст: "${text}"\n`;
     if (targetUsername) {
